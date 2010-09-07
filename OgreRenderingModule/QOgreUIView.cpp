@@ -5,6 +5,7 @@
 #include "CoreStringUtils.h"
 #include "KeyBindings.h"
 #include <QDebug>
+#include <QUrl>
 
 #ifdef Q_WS_X11
 #include <QX11Info>
@@ -22,7 +23,7 @@ namespace OgreRenderer
         view_(0)
     {
         setScene(new QGraphicsScene(this)); // Set parent to scene for qt cleanup
-        Initialize_();
+        Initialize_();        
     }
 
     QOgreUIView::~QOgreUIView ()
@@ -38,7 +39,9 @@ namespace OgreRenderer
         setViewportUpdateMode (QGraphicsView::FullViewportUpdate);
         setHorizontalScrollBarPolicy (Qt::ScrollBarAlwaysOff);
         setVerticalScrollBarPolicy (Qt::ScrollBarAlwaysOff);
-        setLineWidth(0);
+        setLineWidth(0);        
+        setMouseTracking(true);
+        setAcceptDrops(true);
 
         // Get rid of extra white layers under widgets
         // Qt doesn't respect the above request to not fill background
@@ -74,7 +77,7 @@ namespace OgreRenderer
 
     void QOgreUIView::SetScene(QGraphicsScene *new_scene)
     {
-        setScene(new_scene);
+        setScene(new_scene);        
         QObject::connect(scene(), SIGNAL( changed (const QList<QRectF> &) ), this, SLOT( SceneChange() ));   
     }
 
@@ -194,6 +197,21 @@ namespace OgreRenderer
                 iter++;
             }
         }
+    }
+
+    void QOgreUIView::dropEvent (QDropEvent * e)
+    {        
+        emit LibraryDropEvent(e);
+    }
+
+    void QOgreUIView::dragEnterEvent (QDragEnterEvent * e)
+    {           
+        e->accept();
+    }   
+
+    void QOgreUIView::dragMoveEvent (QDragMoveEvent * e)
+    {
+        e->accept();
     }
 
     void QOgreUIView::keyPressEvent (QKeyEvent *e)

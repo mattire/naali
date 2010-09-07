@@ -11,6 +11,9 @@
 
 #include <QGraphicsView>
 #include <QKeyEvent>
+#include <QDropEvent>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
 
 namespace Foundation { class KeyBindings; }
 
@@ -41,6 +44,9 @@ namespace OgreRenderer
     protected:
         void keyPressEvent (QKeyEvent *e);
         void resizeEvent (QResizeEvent *e);
+        void dropEvent (QDropEvent * event); 
+        void dragEnterEvent (QDragEnterEvent * event);
+        void dragMoveEvent (QDragMoveEvent * event);
 
     private:
         void Initialize_ ();
@@ -60,6 +66,8 @@ namespace OgreRenderer
         void PythonRestartRequest();
         
         void ViewKeyPressed(QKeyEvent *key_event);
+
+        void LibraryDropEvent(QDropEvent *drop_event);
     };
 
 } 
