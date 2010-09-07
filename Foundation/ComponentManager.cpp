@@ -7,6 +7,7 @@
 #include "ComponentInterface.h"
 #include "AttributeInterface.h"
 #include "AssetInterface.h"
+#include "Transform.h"
 
 #include <QVariant>
 
@@ -25,6 +26,7 @@ namespace Foundation
         attributeTypes_.push_back("assetreference");
         attributeTypes_.push_back("qvariant");
         attributeTypes_.push_back("qvariantarray");
+        attributeTypes_.push_back("transform");
     }
 
     bool ComponentManager::CanCreate(const QString &type_name)
@@ -66,8 +68,8 @@ namespace Foundation
     AttributeInterface *ComponentManager::CreateAttribute(ComponentInterface *owner, const std::string &typeName, const std::string &name)
     {
         AttributeInterface *attribute = 0;
-        if (typeName == "string")
-            attribute = new Attribute<std::string>(owner, name.c_str());
+        if(typeName == "string")
+            attribute = new Attribute<QString>(owner, name.c_str());
         else if(typeName == "int")
             attribute = new Attribute<int>(owner, name.c_str());
         else if(typeName == "real")
@@ -88,6 +90,8 @@ namespace Foundation
             attribute = new Attribute<QVariant>(owner, name.c_str());
         else if(typeName == "qvariantarray")
             attribute = new Attribute<std::vector<QVariant> >(owner, name.c_str());
+        else if(typeName == "transform")
+            attribute = new Attribute<Transform>(owner, name.c_str());
         return attribute;
     }
 

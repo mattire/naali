@@ -33,11 +33,16 @@ namespace WorldBuilding
         camera_handler_(0),
         prim_selected_(true),
         selected_entity_(0),
-        selected_camera_id_(-1)
+        selected_camera_id_(-1),
+        viewport_poller_(new QTimer(this)),
+        override_server_time_(false)
     {
         setParent(parent);
-        InitialseScene();
-        ObjectSelected(false);
+        connect(framework_->GetQApplication(), SIGNAL(aboutToQuit()), SLOT(CleanPyWidgets()));
+        connect(viewport_poller_, SIGNAL(timeout()), SLOT(UpdateObjectViewport()));
+
+        InitScene();
+        ObjectSelected(false);        
     }
 
     BuildSceneManager::~BuildSceneManager()
@@ -46,7 +51,27 @@ namespace WorldBuilding
         SAFE_DELETE(object_manipulations_widget_);
     }
 
-    void BuildSceneManager::InitialseScene()
+    void BuildSceneManager::CleanPyWidgets()
+    {
+        // Remove pythong inserted widgets from lauyout as they are deleted in py code
+        foreach (QWidget *py_widget, python_deleted_widgets_)
+        {
+            py_widget->hide();
+            int index = object_manip_ui.main_layout->indexOf(py_widget);
+            if (index == -1)
+                continue;
+            QLayoutItem *item = object_manip_ui.main_layout->takeAt(index);
+            if (!item)
+                continue;
+            object_manip_ui.main_layout->removeItem(item);
+            delete item; // Deletes the layout item which != the widget
+            py_widget->setParent(0);
+            py_widget = 0;
+        }
+        python_deleted_widgets_.clear();
+    }
+
+    void BuildSceneManager::InitScene()
     {
         scene_ = new BuildScene(this);
         layout_ = new AnchorLayout(this, scene_);
@@ -58,6 +83,8 @@ namespace WorldBuilding
             ui->RegisterScene(scene_name_, scene_);
             connect(ui, SIGNAL(SceneChanged(const QString&, const QString &)),
                 SLOT(SceneChangedNotification(const QString&, const QString&)));
+            connect(ui, SIGNAL(TransferRequest(const QString&, QGraphicsProxyWidget*)),
+                SLOT(HandleWidgetTransfer(const QString&, QGraphicsProxyWidget*)));
         }
 
         // Init info widget
@@ -93,19 +120,147 @@ namespace WorldBuilding
         object_manipulations_widget_->PrepWidget();
         connect(scene_, SIGNAL(sceneRectChanged(const QRectF&)), object_manipulations_widget_, SLOT(SceneRectChanged(const QRectF&)));
 
+        // Init the toolbar
+        toolbar_ = new Ui::BuildToolbar();
+        layout_->AnchorWidgetsHorizontally(object_info_widget_, toolbar_);
+        connect(toolbar_->button_exit, SIGNAL(clicked()), SLOT(HideBuildScene()));
+        connect(toolbar_->button_lights, SIGNAL(clicked()), SLOT(ToggleLights()));
+        connect(toolbar_->slider_lights, SIGNAL(sliderMoved(int)), SIGNAL(SetOverrideTime(int)));
+
         // Init python handler
         python_handler_ = new PythonHandler(this);
+        connect(python_handler_, SIGNAL(WidgetRecieved(const QString&, QWidget*)), SLOT(HandlePythonWidget(const QString&, QWidget*)));
 
         // Init editor handler
         property_editor_handler_ = new PropertyEditorHandler(ui_helper_, this);
 
         // Init camera handler
         camera_handler_ = new View::CameraHandler(framework_, this);
-        connect(world_object_view_, SIGNAL(RotateObject(qreal, qreal)), this, SLOT(RotateObject(qreal, qreal))); 
-        connect(world_object_view_, SIGNAL(Zoom(qreal)), this, SLOT(Zoom(qreal))); 
+        connect(world_object_view_, SIGNAL(RotateObject(qreal, qreal)), SLOT(RotateObject(qreal, qreal))); 
+        connect(world_object_view_, SIGNAL(Zoom(qreal)), SLOT(Zoom(qreal))); 
 
         // Setup ui helper
         ui_helper_->SetupRotateControls(&object_manip_ui, python_handler_);
+    }
+
+    void BuildSceneManager::HandleWidgetTransfer(const QString &name, QGraphicsProxyWidget *widget)
+    {
+        if (!widget)
+            return;
+        if (!scene_->isActive())
+            return;
+        if (widget->scene() == scene_)
+            return;
+
+        bool scene_widget = true;
+        QString name_compare = name.toLower();
+        if (name_compare == "components")
+        {
+            tranfer_widgets_[name] = TransferPair(widget->widget(), widget);
+            widget->setWidget(0);
+            object_info_ui.components_layout->addWidget(tranfer_widgets_[name].first);
+            tranfer_widgets_[name].first->show();
+            scene_widget = false;
+        }
+        else if (name_compare == "console")
+        {
+            scene_->addItem(widget);
+            scene_widget = false;
+        }
+        else if (name_compare == "inventory")
+        {
+            tranfer_widgets_[name] = TransferPair(widget->widget(), widget);
+            widget->setWidget(0);
+            object_manip_ui.tab_widget->addTab(tranfer_widgets_[name].first, name);
+            tranfer_widgets_[name].first->show();
+            scene_widget = false;
+        }
+
+        if (scene_widget)
+        {
+            // Add to scene and toolbar
+            scene_->addItem(widget);
+            toolbar_->AddButton(name, widget);
+            // Set initial pos and hide
+            widget->setPos(object_manipulations_widget_->rect().width() + 25, 60);
+            widget->hide();
+        }
+    }
+
+    void BuildSceneManager::HandleTransfersBack()
+    {
+        foreach (QString name, tranfer_widgets_.keys())
+        {
+            int index = -1;
+            TransferPair pair = tranfer_widgets_[name];
+            if (name == "Components")
+            {
+                index = object_info_ui.components_layout->indexOf(pair.first);
+                QLayoutItem *item = object_info_ui.components_layout->takeAt(index);
+                if (item)
+                    delete item;
+            }
+            else
+            {
+                index = object_manip_ui.tab_widget->indexOf(pair.first);
+                if (index != -1)
+                    object_manip_ui.tab_widget->removeTab(index);
+            }
+            pair.first->setParent(0);
+            pair.second->setWidget(pair.first);
+            pair.second->hide();
+        }
+        tranfer_widgets_.clear();
+        object_manip_ui.tab_widget->clear();
+    }
+
+    void BuildSceneManager::HandlePythonWidget(const QString &type, QWidget *widget)
+    {
+        if (!widget)
+            return;
+
+        // Check for type
+        bool create_widgets = false;
+        bool python_deletes = true;
+        QString type_compare = type.toLower();
+        QString label_title = type;
+        if (type_compare == "materials")
+        {
+            create_widgets = true;
+            label_title = "Textures";
+        }
+        else if (type_compare == "mesh")
+        {
+            create_widgets = true;
+            label_title = "3D Mesh Model";
+        }
+        else if (type_compare == "sound")
+        {
+            create_widgets = true;
+            label_title = "Attached Sound";
+        }
+
+        if (create_widgets)
+        {
+            QString title_style("font-size:18px;font-weight:bold;padding-top:5px;");
+            int len = object_manip_ui.main_layout->count();
+
+            // Make title and insert widget
+            QLabel *title = new QLabel(label_title);
+            title->setStyleSheet(title_style);
+            title->setIndent(0);
+            object_manip_ui.main_layout->insertWidget(len-2, title);
+            object_manip_ui.main_layout->insertWidget(len-1, widget);
+
+            // Put to internal lists for visibility and deleting
+            toggle_visibility_widgets_ << title << widget;
+            if (python_deletes)
+                python_deleted_widgets_ << widget;
+
+            // Hide all on startup
+            widget->hide();
+            title->hide();
+        }
     }
 
     void BuildSceneManager::KeyPressed(KeyEvent *key)
@@ -295,11 +450,15 @@ namespace WorldBuilding
             object_info_widget_->CheckSize();
             object_manipulations_widget_->CheckSize();
             python_handler_->EmitEditingActivated(true);
+            tranfer_widgets_.clear();
+            object_manip_ui.tab_widget->clear();
         }
         else if (old_name == scene_name_)
         {
             ObjectSelected(false);
             python_handler_->EmitEditingActivated(false);
+            toolbar_->RemoveAllButtons();
+            HandleTransfersBack();
         }
     }
 
@@ -316,6 +475,7 @@ namespace WorldBuilding
             camera_handler_->DestroyCamera(selected_camera_id_);
             selected_camera_id_ = -1;
         }
+        override_server_time_ = false;
     }
 
     void BuildSceneManager::ResetEditing()
@@ -357,6 +517,17 @@ namespace WorldBuilding
         object_manip_ui.button_rotate->setEnabled(selected);
 
         property_editor_handler_->SetEditorVisible(selected);
+
+        foreach(QWidget *widget, toggle_visibility_widgets_)
+            widget->setVisible(selected);
+
+        if (selected)
+            viewport_poller_->start(50);
+        else
+        {
+            selected_entity_ = 0;
+            viewport_poller_->stop();
+        }
     }
 
     void BuildSceneManager::ObjectSelected(Scene::Entity *entity)
@@ -375,9 +546,6 @@ namespace WorldBuilding
             return;
         }
 
-        camera_handler_->FocusToEntity(selected_camera_id_, entity);
-        UpdateObjectViewport();
-
         // Update our widgets UI
         object_info_ui.server_id_value->setText(ui_helper_->CheckUiValue(prim->getFullId()));
         object_info_ui.local_id_value->setText(ui_helper_->CheckUiValue(prim->getLocalId()));
@@ -387,15 +555,17 @@ namespace WorldBuilding
             property_editor_handler_->CreatePropertyBrowser(object_info_widget_->GetInternal(), object_info_ui.property_browser_layout, prim);
         else
             property_editor_handler_->PrimSelected(prim);
+        selected_entity_ =  entity;
+
+        // Starts to update the viewport with a timer
         ObjectSelected(true);
-        selected_entity_ =  entity;       
     }
 
     void BuildSceneManager::UpdateObjectViewport()
     {
-        world_object_view_->setPixmap(camera_handler_->RenderCamera(selected_camera_id_, world_object_view_->size()));
-        if (!world_object_view_->text().isEmpty())
-            world_object_view_->setText("");
+        if (selected_camera_id_ != -1 && world_object_view_ && selected_entity_)
+            if (camera_handler_->FocusToEntity(selected_camera_id_, selected_entity_))
+                world_object_view_->setPixmap(camera_handler_->RenderCamera(selected_camera_id_, world_object_view_->size()));
     }
 
     void BuildSceneManager::Zoom(qreal delta)
@@ -406,8 +576,7 @@ namespace WorldBuilding
             if (entity_ec_placable)
             {
                 qreal acceleration = 0.01;
-                if (camera_handler_->ZoomRelativeToPoint(entity_ec_placable->GetPosition(),selected_camera_id_, delta*acceleration))
-                    UpdateObjectViewport();
+                camera_handler_->ZoomRelativeToPoint(entity_ec_placable->GetPosition(),selected_camera_id_, delta*acceleration);
             }
         }
     }
@@ -422,8 +591,21 @@ namespace WorldBuilding
                 qreal acceleration_x = 1;
                 qreal acceleration_y = 1;
                 camera_handler_->RotateCamera(entity_ec_placable->GetPosition(),selected_camera_id_,x*acceleration_x,y*acceleration_y);
-                UpdateObjectViewport();
             }
         }
+    }
+
+    void BuildSceneManager::ToggleLights()
+    {
+        override_server_time_ = !override_server_time_;
+        emit OverrideServerTime((int)override_server_time_);
+        if (override_server_time_)
+        {
+            emit SetOverrideTime(toolbar_->slider_lights->value());
+            toolbar_->button_lights->setText("Disable Custom Lights");
+        }
+        else
+            toolbar_->button_lights->setText("Custom Lights");
+        toolbar_->slider_lights->setVisible(override_server_time_);
     }
 }

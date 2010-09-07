@@ -115,10 +115,12 @@ st/shared_ptr.hpp, line 419
     meshname = "axes.mesh"
     
     avatar = r.getEntity(r.getUserAvatarId())
-    ent = r.createEntity(meshname)
+    ent = r.createEntity(meshname, 12345681)
     #print "New entity created:", ent, ent.pos
-    ent.pos = avatar.pos
-    ent.scale = 0.0, 0.0, 0.0
+    ent.placeable.Position = avatar.placeable.Position
+
+    from PythonQt.QtGui import QVector3D as Vec
+    ent.placeable.Scale = Vec(0.1, 0.1, 0.1)
     #print "new pos", ent.pos, ent.scale
 
 if 0: #placeable and text tests
@@ -732,32 +734,36 @@ if 0:
     r.c.widget.move_button.setChecked(False)
     
 if 0:
-    from editgui.vector3 import Vector3 as V3
     fov = r.getCameraFOV()
-    rightvec = V3(r.getCameraRight())
-    campos = V3(r.getCameraPosition())
-    ent = r.getEntity(r.getUserAvatarId())
-    entpos = V3(ent.pos)
-    width, height = r.getScreenSize()
-    
-    x = 613
-    y = 345
-    normalized_width = 1/width
-    normalized_height = 1/height
-    
-    #print x * normalized_width
-    
-    length = (campos-entpos).length
-    worldwidth = (math.tan(fov/2)*length) * 2
+    #rightvec = V3(r.getCameraRight())
+    #campos = V3(r.getCameraPosition())
+    #ent = r.getEntity(r.getUserAvatarId())
+    #entpos = V3(ent.pos)
+    #width, height = r.getScreenSize()
+    import naali
+    rend = naali.renderer
+    #print r.getScreenSize()
+    print rend.GetWindowWidth(), rend.GetWindowHeight()
 
-    #print campos, entpos, length, fov, width, height
+    if 0: #didn't port the above vec getters now to current
+        x = 613
+        y = 345
+        normalized_width = 1/width
+        normalized_height = 1/height
     
-    ent1 = r.createEntity("cruncah.mesh")
-    ent1.pos = pos.x, pos.y+worldwidth/2, pos.z
-    ent2 = r.createEntity("cruncah.mesh")
-    ent2.pos = pos.x, pos.y+worldwidth/2, pos.z
-    #~ newpos = 
-    #~ print newpos
+        #print x * normalized_width
+    
+        length = (campos-entpos).length
+        worldwidth = (math.tan(fov/2)*length) * 2
+
+        #print campos, entpos, length, fov, width, height
+    
+        ent1 = r.createEntity("cruncah.mesh")
+        ent1.pos = pos.x, pos.y+worldwidth/2, pos.z
+        ent2 = r.createEntity("cruncah.mesh")
+        ent2.pos = pos.x, pos.y+worldwidth/2, pos.z
+        #~ newpos = 
+        #~ print newpos
     
     
 if 0: #bounding box tests
@@ -817,6 +823,11 @@ if 0: #getrexlogic test
     #class entity_id_t(int): pass
     #entid = entity_id_t(2)
     #l.SendRexPrimData(entid)
+    
+if 0: #rexlogic as service with qt mechanism
+    from __main__ import _naali
+    l = _naali.GetWorldLogic()
+    print dir(l)
     
 if 0: #undo tests
     e = r.getEntity(1752805599)

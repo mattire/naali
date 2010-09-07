@@ -1,7 +1,7 @@
 // For conditions of distribution and use, see copyright notice in license.txt
 
-#ifndef incl_RexLogicModule_EC_Mesh_h
-#define incl_RexLogicModule_EC_Mesh_h
+#ifndef incl_EC_Mesh_EC_Mesh_h
+#define incl_EC_Mesh_EC_Mesh_h
 
 #include "ComponentInterface.h"
 #include "AttributeInterface.h"
@@ -10,6 +10,7 @@
 #include "RexTypes.h"
 #include "ResourceInterface.h"
 #include "Quaternion.h"
+#include "Transform.h"
 
 #include <QVariant>
 
@@ -17,6 +18,7 @@ namespace Ogre
 {
     class Entity;
     class SceneNode;
+    class Skeleton;
 }
 
 namespace OgreRenderer
@@ -27,6 +29,7 @@ namespace OgreRenderer
     typedef boost::weak_ptr<Renderer> RendererWeakPtr;
 }
 
+//! Note if you are planning to remove the skeleton you need to relogin to the server.
 class EC_Mesh : public Foundation::ComponentInterface
 {
     Q_OBJECT
@@ -37,25 +40,20 @@ public:
     ~EC_Mesh();
 
     virtual bool IsSerializable() const { return true; }
+    bool HandleEvent(event_category_id_t category_id, event_id_t event_id, Foundation::EventDataInterface *data);
 
-    //! Gets placeable component
-    Foundation::ComponentPtr GetPlaceable() const { return placeable_; }
-    
-    //! Sets placeable component
-    void SetPlaceable(Foundation::ComponentPtr placeable);
-
-    //! Don't use this unless you know what you are doing.
-    bool HandleResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data);
-
-    //! Add or change entity's mesh.
-    void SetMesh(const std::string &name, bool clone = false);
-    void RemoveMesh();
-    bool SetMaterial(uint index, const std::string& material_name);
-
-    Foundation::Attribute<std::string> meshResouceId_;
+    Foundation::Attribute<Transform> nodePosition_;
+    Foundation::Attribute<QString> meshResouceId_;
+    Foundation::Attribute<QString> skeletonId_;
     Foundation::Attribute<std::vector<QVariant> > meshMaterial_;
     Foundation::Attribute<Real> drawDistance_;
     Foundation::Attribute<bool> castShadows_;
+
+public slots:
+    //! Add or change entity's mesh.
+    void SetMesh(const QString &name);
+    void RemoveMesh();
+    bool SetMaterial(uint index, const QString &material_name);
 
 private slots:
     //! Emitted when the parrent entity has been setted.
@@ -65,7 +63,8 @@ private slots:
 
 signals:
     void OnMeshChanged();
-    void OnMaterialChanged(uint index, const std::string &material_name);
+    void OnMaterialChanged(uint index, const QString &material_name);
+    void OnSkeletonChanged(QString skeleton_name);
 
 private:
     //! Constuctor.
@@ -79,6 +78,7 @@ private:
      */
     request_tag_t RequestResource(const std::string& id, const std::string& type);
     
+    Foundation::ComponentPtr FindPlaceable() const;
     //! Checks if component's and entity's materials differ from each other
     /*! so that we can ensure that material resources are only requested when materials have actually changed.
      *! @return Return true if materials differ from each other.
@@ -88,17 +88,28 @@ private:
     void AttachEntity();
     //! Detach entity from the scene node.
     void DetachEntity();
+    //! Attach skeleton to entity's mesh.
+    void AttachSkeleton(const QString &skeletonName);
 
-    Foundation::ComponentPtr placeable_;
-    Foundation::Framework *framework_;
+    bool HandleResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data);
+    bool HandleMeshResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data);
+    bool HandleSkeletonResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data);
+    bool HandleMaterialResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data);
+
     OgreRenderer::RendererWeakPtr renderer_;
-    typedef std::set<request_tag_t> AssetRequestTags;
-    AssetRequestTags requestTags_;
-    typedef std::vector<request_tag_t> AssetRequestArray;
-    AssetRequestArray materialRequestTags_;
     Ogre::Entity* entity_;
     Ogre::SceneNode* node_;
+    Ogre::Skeleton* skeleton_;
     bool attached_;
+    event_category_id_t resource_event_category_;
+
+    typedef std::vector<request_tag_t> AssetRequestArray;
+    AssetRequestArray materialRequestTags_;
+
+    typedef std::pair<request_tag_t, std::string> ResouceKeyPair;
+    typedef boost::function<bool(event_id_t,Foundation::EventDataInterface*)> MeshEventHandlerFunction;
+    typedef std::map<ResouceKeyPair, MeshEventHandlerFunction> MeshResourceHandlerMap;
+    MeshResourceHandlerMap resRequestTags_;
 };
 
 #endif

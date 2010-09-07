@@ -9,6 +9,7 @@
 #include "SceneManager.h"
 #include "OgreRenderingModule.h"
 #include "RexUUID.h"
+#include "EventManager.h"
 
 #include "LoggingFunctions.h"
 
@@ -19,7 +20,6 @@ DEFINE_POCO_LOGGING_FUNCTIONS("EC_ParticleSystem")
 
 EC_ParticleSystem::EC_ParticleSystem(Foundation::ModuleInterface *module):
     Foundation::ComponentInterface(module->GetFramework()),
-    framework_(module->GetFramework()),
     particleSystem_(0),
     particle_tag_(0),
     particleId_(this, "Particle id"),
@@ -31,23 +31,18 @@ EC_ParticleSystem::EC_ParticleSystem(Foundation::ModuleInterface *module):
         return;
     renderer_ = OgreRenderer::RendererWeakPtr(rendererModule->GetRenderer());
 
+    Foundation::EventManager *event_manager = framework_->GetEventManager().get();
+    if(event_manager)
+    {
+        event_manager->RegisterEventSubscriber(this, 99);
+        resource_event_category_ = event_manager->QueryEventCategory("Resource");
+    }
     QObject::connect(this, SIGNAL(ParentEntitySet()), this, SLOT(UpdateSignals()));
 }
 
 EC_ParticleSystem::~EC_ParticleSystem()
 {
     DeleteParticleSystem();
-}
-
-
-Foundation::ComponentPtr EC_ParticleSystem::GetPlaceable() const
-{
-    return placeable_;
-}
-
-void EC_ParticleSystem::SetPlaceable(Foundation::ComponentPtr comp)
-{
-    placeable_ = comp;
 }
 
 bool EC_ParticleSystem::HandleResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data)
@@ -82,7 +77,7 @@ void EC_ParticleSystem::CreateParticleSystem(const QString &systemName)
         particleSystem_ = scene_mgr->createParticleSystem(renderer->GetUniqueObjectName(), systemName.toStdString());
         if(particleSystem_)
         {
-            OgreRenderer::EC_OgrePlaceable *placeable = dynamic_cast<OgreRenderer::EC_OgrePlaceable *>(placeable_.get());
+            OgreRenderer::EC_OgrePlaceable *placeable = dynamic_cast<OgreRenderer::EC_OgrePlaceable *>(FindPlaceable().get());
             if(!placeable)
                 return;
             placeable->GetSceneNode()->attachObject(particleSystem_);
@@ -105,12 +100,9 @@ void EC_ParticleSystem::DeleteParticleSystem()
         return;
     OgreRenderer::RendererPtr renderer = renderer_.lock();
 
-    OgreRenderer::EC_OgrePlaceable *placeable = dynamic_cast<OgreRenderer::EC_OgrePlaceable *>(placeable_.get());
-    if(!placeable)
-        return;
-
+    OgreRenderer::EC_OgrePlaceable *placeable = dynamic_cast<OgreRenderer::EC_OgrePlaceable *>(FindPlaceable().get());
     Ogre::SceneManager* scene_mgr = renderer->GetSceneManager();
-    if(!scene_mgr)
+    if(!placeable || !scene_mgr)
         return;
 
     try
@@ -128,8 +120,19 @@ void EC_ParticleSystem::DeleteParticleSystem()
 
     scene_mgr->destroyParticleSystem(particleSystem_);
     particleSystem_ = 0;
-
     return;
+}
+
+bool EC_ParticleSystem::HandleEvent(event_category_id_t category_id, event_id_t event_id, Foundation::EventDataInterface* data)
+{
+    if(category_id == resource_event_category_)
+    {
+        if(event_id == Resource::Events::RESOURCE_READY)
+        {
+            return HandleResourceEvent(event_id, data);
+        }
+    }
+    return false;
 }
 
 void EC_ParticleSystem::AttributeUpdated(Foundation::ComponentInterface *component, Foundation::AttributeInterface *attribute)
@@ -139,12 +142,7 @@ void EC_ParticleSystem::AttributeUpdated(Foundation::ComponentInterface *compone
 
     if(attribute->GetNameString() == particleId_.GetNameString())
     {
-        /*if(particle_tag_)
-            return;*/
-        Foundation::Attribute<std::string> *particleAtt = dynamic_cast<Foundation::Attribute<std::string> *>(attribute);
-        if(!particleAtt)
-            return;
-        particle_tag_ = RequestResource(particleAtt->Get(), OgreRenderer::OgreParticleResource::GetTypeStatic());
+        particle_tag_ = RequestResource(particleId_.Get().toStdString(), OgreRenderer::OgreParticleResource::GetTypeStatic());
         if(!particle_tag_) // To visualize that resource id was wrong delete previous particle effect off.
             DeleteParticleSystem();
     }
@@ -163,7 +161,6 @@ void EC_ParticleSystem::AttributeUpdated(Foundation::ComponentInterface *compone
 void EC_ParticleSystem::UpdateSignals()
 {
     disconnect(this, SLOT(AttributeUpdated(Foundation::ComponentInterface *, Foundation::AttributeInterface *)));
-    FindPlaceable();
     if(!GetParentEntity())
         return;
 
@@ -173,23 +170,24 @@ void EC_ParticleSystem::UpdateSignals()
                 this, SLOT(AttributeUpdated(Foundation::ComponentInterface*, Foundation::AttributeInterface*))); 
 }
 
-void EC_ParticleSystem::FindPlaceable()
+Foundation::ComponentPtr EC_ParticleSystem::FindPlaceable() const
 {
     assert(framework_);
-    Scene::ScenePtr scene = framework_->GetDefaultWorldScene();
-    placeable_ = GetParentEntity()->GetComponent<OgreRenderer::EC_OgrePlaceable>();
-    if(!placeable_)
-        LogError("Couldn't find a EC_OgrePlaceable coponent in this entity.");
-    return;
+    Foundation::ComponentPtr comp;
+    if(!GetParentEntity())
+        return comp;
+    comp = GetParentEntity()->GetComponent<OgreRenderer::EC_OgrePlaceable>();
+    return comp;
 }
 
 request_tag_t EC_ParticleSystem::RequestResource(const std::string& id, const std::string& type)
 {
     request_tag_t tag = 0;
-    if(renderer_.expired())
+    Foundation::RenderServiceInterface *renderInter = framework_->GetService<Foundation::RenderServiceInterface>();
+    if(!renderInter)
         return tag;
 
-    tag = renderer_.lock()->RequestResource(id, type);
+    tag = renderInter->RequestResource(id, type);
     if(tag == 0)
     {
         LogWarning("Failed to request resource:" + id + " : " + type);

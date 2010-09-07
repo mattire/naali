@@ -18,7 +18,8 @@ TODO (most work is in api additions on the c++ side, then simple usage here):
 
 """
 
-import rexviewer as r
+from __future__ import division
+
 from circuits import Component
 from PythonQt.QtUiTools import QUiLoader
 from PythonQt.QtCore import QFile, Qt
@@ -26,7 +27,10 @@ import conversions as conv
 reload(conv) # force reload, otherwise conversions is not reloaded on python restart in Naali
 from PythonQt.QtGui import QVector3D as Vec
 from PythonQt.QtGui import QQuaternion as Quat
-from naali import inputcontext
+
+import rexviewer as r
+import naali #naali.renderer for FrustumQuery, hopefully all ex-rexviewer things soon
+from naali import inputcontext, renderer
 
 try:
     window
@@ -63,7 +67,6 @@ class ObjectEdit(Component):
         self.useLocalTransform = False
         self.cpp_python_handler = None
         self.left_button_down = False
-        self.right_button_down = False
         self.keypressed = False
 
         self.shortcuts = {
@@ -83,8 +86,6 @@ class ObjectEdit(Component):
         inputcontext.connect('MouseScroll(MouseEvent*)', self.on_mousescroll)
         inputcontext.connect('MouseLeftPressed(MouseEvent*)', self.on_mouseleftpressed)
         inputcontext.connect('MouseLeftReleased(MouseEvent*)', self.on_mouseleftreleased)
-        inputcontext.connect('MouseRightPressed(MouseEvent*)', self.on_mouserightpressed)
-        inputcontext.connect('MouseRightReleased(MouseEvent*)', self.on_mouserightreleased)
         inputcontext.connect('MouseMove(MouseEvent*)', self.on_mousemove)
         
         self.resetManipulators()
@@ -113,6 +114,7 @@ class ObjectEdit(Component):
         if self.cpp_python_handler == None:
             r.logDebug("Could not aqquire world building service to object edit")
         else:
+            # Connect signals
             self.cpp_python_handler.connect('ActivateEditing(bool)', self.on_activate_editing)
             self.cpp_python_handler.connect('ManipulationMode(int)', self.on_manupulation_mode_change)
             self.cpp_python_handler.connect('RemoveHightlight()', self.deselect_all)
@@ -120,6 +122,10 @@ class ObjectEdit(Component):
             self.cpp_python_handler.connect('CreateObject()', self.createObject)
             self.cpp_python_handler.connect('DuplicateObject()', self.duplicate)
             self.cpp_python_handler.connect('DeleteObject()', self.deleteObject)
+            # Pass widgets
+            self.cpp_python_handler.PassWidget("Mesh", self.window.mesh_widget)
+            self.cpp_python_handler.PassWidget("Sound", self.window.sound_widget)
+            self.cpp_python_handler.PassWidget("Materials", self.window.materialTabFormWidget)
             
     def on_keypressed(self, k):
         trigger = (k.keyCode, k.modifiers)
@@ -137,7 +143,6 @@ class ObjectEdit(Component):
         
     def resetValues(self):
         self.left_button_down = False
-        self.right_button_down = False
         self.sel_activated = False #to prevent the selection to be moved on the intial click
         self.prev_mouse_abs_x = 0
         self.prev_mouse_abs_y = 0
@@ -363,14 +368,16 @@ class ObjectEdit(Component):
         if not self.windowActive:
             return
 
+        if mouseinfo.HasShiftModifier() and not mouseinfo.HasCtrlModifier() and not mouseinfo.HasAltModifier():
+            self.on_multiselect(mouseinfo)
+            return
+            
         self.dragStarted(mouseinfo) #need to call this to enable working dragging
-        
         self.left_button_down = True
-        
+
         results = []
         results = r.rayCast(mouseinfo.x, mouseinfo.y)
         ent = None
-        
         if results is not None and results[0] != 0:
             id = results[0]
             ent = r.getEntity(id)
@@ -407,9 +414,9 @@ class ObjectEdit(Component):
             self.deselect_all()
             
     def dragStarted(self, mouseinfo):
-        width, height = r.getScreenSize()
-        normalized_width = 1/width
-        normalized_height = 1/height
+        width, height = renderer.GetWindowWidth(), renderer.GetWindowHeight()
+        normalized_width = 1 / width
+        normalized_height = 1 / height
         mouse_abs_x = normalized_width * mouseinfo.x
         mouse_abs_y = normalized_height * mouseinfo.y
         self.prev_mouse_abs_x = mouse_abs_x
@@ -435,7 +442,6 @@ class ObjectEdit(Component):
         self.manipulator.stopManipulating()
         self.manipulator.showManipulator(self.sels)
         self.usingManipulator = False
-        self.duplicateDragStart = False #XXXchange?
         
         if self.selection_rect_startpos is not None:
             self.selection_rect.hide()
@@ -464,47 +470,34 @@ class ObjectEdit(Component):
             
         return rectx, recty, rectwidth, rectheight
 
-    def on_mouserightpressed(self, mouseinfo):
-        #r.logInfo("rightmouse down")
-        if self.windowActive:
-            self.right_button_down = True
-            
+    def on_multiselect(self, mouseinfo):
+        r.logInfo("on_multiselect()")
+        if self.windowActive:           
             results = []
             results = r.rayCast(mouseinfo.x, mouseinfo.y)
-            
             ent = None
-            
             if results is not None and results[0] != 0:
                 id = results[0]
                 ent = r.getEntity(id)
                 
             found = False
             if ent is not None:                
-                #print "Got entity:", ent.id
                 for entity in self.sels:
                     if entity.id == ent.id:
-                        found = True #clicked on an already selected entity
-                        #print "multiselect clicked entity is already in selection"
-                
-                #if self.active is None or self.active.id != ent.id: #a diff ent than prev sel was changed  
+                        found = True
                 if self.validId(ent.id):
                     if not found:
-                        #print "new ent to add to multiselect found:", ent.id
                         self.multiselect(ent)
-                    else: #remove this entity which was previously in the selection
+                    else:
                         self.deselect(ent)
                     self.canmove = True
-                        
-            #r.logInfo(str(self.sels))
+            
     def validId(self, id):
         if id != 0 and id > 50: #terrain seems to be 3 and scene objects always big numbers, so > 50 should be good, though randomly created local entities can get over 50...
             if id != r.getUserAvatarId(): #add other avatar id's check
                 if not self.manipulator.compareIds(id):  #and id != self.selection_box.id:
                     return True
         return False
-        
-    def on_mouserightreleased(self, mouseinfo):
-        self.right_button_down = False
 
     def on_mousemove(self, mouseinfo):
         """Handle mouse move events. When no button is pressed, just check
@@ -529,10 +522,9 @@ class ObjectEdit(Component):
         """dragging objects around - now free movement based on view,
         dragging different axis etc in the manipulator to be added."""
         if self.windowActive:
-            width, height = r.getScreenSize()
-            
-            normalized_width = 1/width
-            normalized_height = 1/height
+            width, height = renderer.GetWindowWidth(), renderer.GetWindowHeight()
+            normalized_width = 1 / width
+            normalized_height = 1 / height
             mouse_abs_x = normalized_width * mouseinfo.x
             mouse_abs_y = normalized_height * mouseinfo.y
                                 
@@ -547,15 +539,9 @@ class ObjectEdit(Component):
                     
                     rect = self.selection_rect.rect #0,0 - x, y
                     rect.translate(mouseinfo.x, mouseinfo.y)
-                    rend = r.getQRenderer()
-                    hits = rend.FrustumQuery(rect) #the wish
+                    hits = renderer.FrustumQuery(rect) #the wish
 
                 else:
-                    if self.duplicateDragStart:
-                        for ent in self.sels:
-                            self.worldstream.SendObjectDuplicatePacket(ent.id, ent.prim.UpdateFlags, 0, 0, 0) #nasty hardcoded offset
-                        self.duplicateDragStart = False
-                            
                     ent = self.active
                     if ent is not None and self.sel_activated and self.canmove:
                         self.dragging = True
@@ -597,9 +583,6 @@ class ObjectEdit(Component):
         #if ent is not None:
         for ent in self.sels:
             self.worldstream.SendObjectDuplicatePacket(ent.id, ent.prim.UpdateFlags, 1, 1, 0) #nasty hardcoded offset
-        
-    def duplicateStart(self):
-        self.duplicateDragStart = True
         
     def createObject(self):
         avatar_id = r.getUserAvatarId()
@@ -685,11 +668,8 @@ class ObjectEdit(Component):
                 
                 if not self.dragging:
                     r.networkUpdate(ent.id)
-                
                 #self.window.update_scalevals(scale)
-                
                 self.modified = True
-
                 #self.updateSelectionBox(ent)
             
     def changerot_cpp(self, x, y, z):

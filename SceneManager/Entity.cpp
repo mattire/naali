@@ -9,6 +9,8 @@
 #include "ComponentManager.h"
 #include "EC_Name.h"
 
+#include <QVector>
+
 namespace Scene
 {
     Entity::Entity(Foundation::Framework* framework, SceneManager* scene) :
@@ -157,7 +159,7 @@ namespace Scene
     {
         boost::shared_ptr<EC_Name> name = GetComponent<EC_Name>();
         if (name)
-            return name->name.Get();
+            return name->name.Get().toStdString();
         else
             return "";
     }
@@ -166,8 +168,45 @@ namespace Scene
     {
         boost::shared_ptr<EC_Name> name = GetComponent<EC_Name>();
         if (name)
-            return name->description.Get();
+            return name->description.Get().toStdString();
         else
             return "";
+    }
+
+    void Entity::Exec(const QString &action)
+    {
+        QVector<QString> params;
+        for(size_t i = 0; i < components_.size() ; ++i)
+            components_[i]->Exec(action, params);
+    }
+
+    void Entity::Exec(const QString &action, const QString &param)
+    {
+        QVector<QString> params;
+        params << param;
+        for(size_t i = 0; i < components_.size() ; ++i)
+            components_[i]->Exec(action, params);
+    }
+
+    void Entity::Exec(const QString &action, const QString &param1, const QString &param2)
+    {
+        QVector<QString> params;
+        params << param1 << param2;
+        for(size_t i = 0; i < components_.size() ; ++i)
+            components_[i]->Exec(action, params);
+    }
+
+    void Entity::Exec(const QString &action, const QString &param1, const QString &param2, const QString &param3)
+    {
+        QVector<QString> params; 
+        params << param1 << param2 << param3;
+        for(size_t i = 0; i < components_.size() ; ++i)
+            components_[i]->Exec(action, params);
+    }
+
+    void Entity::Exec(const QString &action, const QVector<QString> &params)
+    {
+        for(size_t i = 0; i < components_.size() ; ++i)
+            components_[i]->Exec(action ,params);
     }
 }
