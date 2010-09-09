@@ -12,11 +12,18 @@
 #include "ModuleInterface.h"
 #include "ModuleLoggingFunctions.h"
 #include "Vector3D.h"
+#include "OgreMeshResource.h"
 
 #include <QDropEvent>
 #include <QObject>
 
 class RexUUID;
+
+namespace OgreRenderer
+{
+    class Renderer;
+    typedef boost::shared_ptr<OgreRenderer::Renderer> RendererPtr;
+}
 
 namespace Foundation
 {
@@ -63,6 +70,9 @@ namespace Library
         //! Handles an asset event. Called from LibraryModule.
         bool HandleAssetEvent(event_id_t event_id, Foundation::EventDataInterface* data);
 
+        //! Handles a resource event. Called from LibraryModule.
+        bool HandleResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data);
+
         //! Show the library widget
         Console::CommandResult ShowWindow(const StringVector &params);
 
@@ -98,15 +108,22 @@ namespace Library
         /// LibraryWidget pointer
         Library::LibraryWidget *library_widget_;        
 
-        //! Asset_tags for map image requests.
-        std::vector<request_tag_t> scene_file_requests_;
+        //! Asset_tags for scene file requests.        
+        QMap<request_tag_t, QUrl> scene_file_requests_;
+
+        //! Asset_tags for mesh file requests.        
+        QMap<request_tag_t, QUrl> mesh_file_requests_;
+
+        void LoadSceneFiles(const QByteArray &bytearr, QString baseUrl);
+
+        Vector3df raycast_pos_;
 
     private slots:
         void LibraryDropEvent(QDropEvent *drop_event);
 
 
     signals:
-        void UploadSceneFile(QString url, Vector3df position);
+        void UploadSceneFile(QString url, int x, int y, int z);
 
    };
 }

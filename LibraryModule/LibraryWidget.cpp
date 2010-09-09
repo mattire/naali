@@ -26,6 +26,7 @@ namespace Library
         setAcceptDrops(true);
         webView->setMouseTracking(true);
         webView->setAcceptDrops(true);
+        webView->setUrl(QUrl("http://192.168.5.197/Library"));
 
     }
 
