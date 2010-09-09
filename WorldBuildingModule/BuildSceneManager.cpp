@@ -247,6 +247,11 @@ namespace WorldBuilding
             create_widgets = true;
             label_title = "Attached Sound";
         }
+        else if (type_compare == "animation")
+        {
+            create_widgets = true;
+            label_title = "Skeleton Animation";
+        }
 
         if (create_widgets)
         {
@@ -283,8 +288,16 @@ namespace WorldBuilding
             return;
         }
 
+        // Below are only taken in if scene is active and we have a selected object
         if (!scene_->isActive() || !property_editor_handler_->HasCurrentPrim() || !prim_selected_)
             return;
+
+        // Delete object
+        if (key->keyCode == Qt::Key_Delete)
+        {
+            DeleteObjectClicked();
+            return;
+        }
 
         PythonParams::ManipulationMode mode = PythonParams::MANIP_NONE;
         if (key->HasCtrlModifier())
@@ -483,13 +496,13 @@ namespace WorldBuilding
             camera_handler_->DestroyCamera(selected_camera_id_);
             selected_camera_id_ = -1;
         }
-        override_server_time_ = false;
     }
 
     void BuildSceneManager::ResetEditing()
     {
         ObjectSelected(false);
         property_editor_handler_->ClearCurrentPrim();
+        override_server_time_ = false;
     }
     
     void BuildSceneManager::ObjectDeselected()

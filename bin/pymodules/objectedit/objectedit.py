@@ -30,7 +30,7 @@ from PythonQt.QtGui import QQuaternion as Quat
 
 import rexviewer as r
 import naali #naali.renderer for FrustumQuery, hopefully all ex-rexviewer things soon
-from naali import inputcontext, renderer
+from naali import renderer
 
 try:
     window
@@ -80,13 +80,15 @@ class ObjectEdit(Component):
         }
 
         # Connect to key pressed signal from input context
-        inputcontext.connect('KeyPressed(KeyEvent*)', self.on_keypressed)
+        self.edit_inputcontext = naali.createInputContext("object-edit", 100)
+        self.edit_inputcontext.SetTakeMouseEventsOverQt(True)
+        self.edit_inputcontext.connect('KeyPressed(KeyEvent*)', self.on_keypressed)
 
         # Connect to mouse events
-        inputcontext.connect('MouseScroll(MouseEvent*)', self.on_mousescroll)
-        inputcontext.connect('MouseLeftPressed(MouseEvent*)', self.on_mouseleftpressed)
-        inputcontext.connect('MouseLeftReleased(MouseEvent*)', self.on_mouseleftreleased)
-        inputcontext.connect('MouseMove(MouseEvent*)', self.on_mousemove)
+        self.edit_inputcontext.connect('MouseScroll(MouseEvent*)', self.on_mousescroll)
+        self.edit_inputcontext.connect('MouseLeftPressed(MouseEvent*)', self.on_mouseleftpressed)
+        self.edit_inputcontext.connect('MouseLeftReleased(MouseEvent*)', self.on_mouseleftreleased)
+        self.edit_inputcontext.connect('MouseMove(MouseEvent*)', self.on_mousemove)
         
         self.resetManipulators()
         
@@ -125,6 +127,7 @@ class ObjectEdit(Component):
             # Pass widgets
             self.cpp_python_handler.PassWidget("Mesh", self.window.mesh_widget)
             self.cpp_python_handler.PassWidget("Sound", self.window.sound_widget)
+            self.cpp_python_handler.PassWidget("Animation", self.window.animation_widget)
             self.cpp_python_handler.PassWidget("Materials", self.window.materialTabFormWidget)
             
     def on_keypressed(self, k):
@@ -367,6 +370,8 @@ class ObjectEdit(Component):
     def on_mouseleftpressed(self, mouseinfo):
         if not self.windowActive:
             return
+        if mouseinfo.IsItemUnderMouse():
+            return
 
         if mouseinfo.HasShiftModifier() and not mouseinfo.HasCtrlModifier() and not mouseinfo.HasAltModifier():
             self.on_multiselect(mouseinfo)
@@ -494,7 +499,7 @@ class ObjectEdit(Component):
             
     def validId(self, id):
         if id != 0 and id > 50: #terrain seems to be 3 and scene objects always big numbers, so > 50 should be good, though randomly created local entities can get over 50...
-            if id != r.getUserAvatarId(): #add other avatar id's check
+            if id != naali.worldlogic.GetUserAvatarEntityRaw().Id: #XXX add other avatar id's check
                 if not self.manipulator.compareIds(id):  #and id != self.selection_box.id:
                     return True
         return False
@@ -585,9 +590,8 @@ class ObjectEdit(Component):
             self.worldstream.SendObjectDuplicatePacket(ent.id, ent.prim.UpdateFlags, 1, 1, 0) #nasty hardcoded offset
         
     def createObject(self):
-        avatar_id = r.getUserAvatarId()
-        avatar = r.getEntity(avatar_id)
-        pos = avatar.placeable.Position#r.getUserAvatarPos()
+        avatar = naali.getUserAvatar()
+        pos = avatar.placeable.Position
 
         # TODO determine what is right in front of avatar and use that instead
         start_x = pos.x() + .7
@@ -706,9 +710,22 @@ class ObjectEdit(Component):
     def on_exit(self):
         r.logInfo("Object Edit exiting..")
         # Connect to key pressed signal from input context
-        inputcontext.disconnectAll()
+        self.edit_inputcontext.disconnectAll()
         self.deselect_all()
         self.window.on_exit()
+
+        self.cpp_python_handler.disconnect('ActivateEditing(bool)', self.on_activate_editing)
+        self.cpp_python_handler.disconnect('ManipulationMode(int)', self.on_manupulation_mode_change)
+        self.cpp_python_handler.disconnect('RemoveHightlight()', self.deselect_all)
+        self.cpp_python_handler.disconnect('RotateValuesChangedToNetwork(int, int, int)', self.changerot_cpp)
+        self.cpp_python_handler.disconnect('CreateObject()', self.createObject)
+        self.cpp_python_handler.disconnect('DuplicateObject()', self.duplicate)
+        self.cpp_python_handler.disconnect('DeleteObject()', self.deleteObject)
+        # Pass widgets
+        #self.cpp_python_handler.PassWidget("Mesh", self.window.mesh_widget)
+        #self.cpp_python_handler.PassWidget("Sound", self.window.sound_widget)
+        #self.cpp_python_handler.PassWidget("Animation", self.window.animation_widget)
+        #self.cpp_python_handler.PassWidget("Materials", self.window.materialTabFormWidget)
         r.logInfo(".. done")
 
     def on_hide(self, shown):
