@@ -12,23 +12,15 @@
 #include "ModuleInterface.h"
 #include "ModuleLoggingFunctions.h"
 #include "Vector3D.h"
-#include "OgreMeshResource.h"
 
 #include <QDropEvent>
 #include <QObject>
 
 class RexUUID;
 
-namespace OgreRenderer
-{
-    class Renderer;
-    typedef boost::shared_ptr<OgreRenderer::Renderer> RendererPtr;
-}
-
 namespace Foundation
 {
     class EventDataInterface;
-    class AssetInterface;
 }
 
 namespace ProtocolUtilities
@@ -67,12 +59,6 @@ namespace Library
         void Update(f64 frametime);
         bool HandleEvent(event_category_id_t category_id, event_id_t event_id, Foundation::EventDataInterface* data);
 
-        //! Handles an asset event. Called from LibraryModule.
-        bool HandleAssetEvent(event_id_t event_id, Foundation::EventDataInterface* data);
-
-        //! Handles a resource event. Called from LibraryModule.
-        bool HandleResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data);
-
         //! Show the library widget
         Console::CommandResult ShowWindow(const StringVector &params);
 
@@ -96,27 +82,11 @@ namespace Library
         /// Framework event category
         event_category_id_t frameworkEventCategory_;
 
-        //! Id for Resource event category
-        event_category_id_t resource_event_category_;
-
-        //! Id for Asset event category
-        event_category_id_t asset_event_category_;
-
         //! WorldStream will handle those network messages that we are wishing to send.
         ProtocolUtilities::WorldStreamPtr currentWorldStream_;
 
         /// LibraryWidget pointer
         Library::LibraryWidget *library_widget_;        
-
-        //! Asset_tags for scene file requests.        
-        QMap<request_tag_t, QUrl> scene_file_requests_;
-
-        //! Asset_tags for mesh file requests.        
-        QMap<request_tag_t, QUrl> mesh_file_requests_;
-
-        void LoadSceneFiles(const QByteArray &bytearr, QString baseUrl);
-
-        Vector3df raycast_pos_;
 
     private slots:
         void LibraryDropEvent(QDropEvent *drop_event);
