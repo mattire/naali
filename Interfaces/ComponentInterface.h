@@ -8,11 +8,11 @@
 #ifndef incl_Interfaces_ComponentInterface_h
 #define incl_Interfaces_ComponentInterface_h
 
+#include "ForwardDefines.h"
 #include "AttributeChangeType.h"
 #include "AttributeInterface.h"
 #include "EventDataInterface.h"
 #include "CoreTypes.h"
-#include "ForwardDefines.h"
 
 #include <QObject>
 
@@ -28,7 +28,7 @@ namespace Foundation
     */
     class ComponentInterface : public QObject
     {
-        friend class AttributeInterface;
+        friend class ::AttributeInterface;
 
         Q_OBJECT
         Q_PROPERTY(QString Name READ Name)
@@ -61,6 +61,12 @@ namespace Foundation
         //! Returns parent entity of this component.
         //! \note Returns null if called in the component's constuctor because the parent entity is not yet set there.
         Scene::Entity* GetParentEntity() const;
+
+        //! Sets network sync enabled/disabled. By default on.
+        void SetNetworkSyncEnabled(bool enabled);
+
+        //! Gets whether network enabled/disabled.
+        bool GetNetworkSyncEnabled() { return network_sync_; }
 
         //! Return true for components that support XML serialization
         virtual bool IsSerializable() const { return false; }
@@ -180,6 +186,9 @@ namespace Foundation
         //! Change status for the component itself
         AttributeChange::Type change_;
 
+        //! Network sync enable flag
+        bool network_sync_;
+        
         //! Framework pointer. Needed so that component is able to perform important uninitialization etc. even when not in an entity
         Framework* framework_;
 

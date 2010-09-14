@@ -21,15 +21,14 @@ public:
     ~EC_Sound();
     virtual bool IsSerializable() const { return true; }
 
-    Foundation::Attribute<QString>      soundId_;
-    Foundation::Attribute<float>         soundInnerRadius_;
-    Foundation::Attribute<float>         soundOuterRadius_;
-    Foundation::Attribute<float>         soundGain_;
-    Foundation::Attribute<bool>         loopSound_;
-    Foundation::Attribute<bool>         triggerSound_;
+    Attribute<QString>      soundId_;
+    Attribute<float>         soundInnerRadius_;
+    Attribute<float>         soundOuterRadius_;
+    Attribute<float>         soundGain_;
+    Attribute<bool>         loopSound_;
+    Attribute<bool>         triggerSound_;
 
 public slots:
-    void AttributeUpdated(Foundation::ComponentInterface *component, Foundation::AttributeInterface *attribute);
     void PlaySound();
     void StopSound();
     //! Get each attribute values and update sound's parameters if it's in playing state.
@@ -37,6 +36,7 @@ public slots:
 
 private slots:
     void UpdateSignals();
+    void AttributeUpdated(Foundation::ComponentInterface *component, AttributeInterface *attribute);
 
 private:
     explicit EC_Sound(Foundation::ModuleInterface *module);

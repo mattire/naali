@@ -42,29 +42,32 @@ public:
     virtual bool IsSerializable() const { return true; }
     bool HandleEvent(event_category_id_t category_id, event_id_t event_id, Foundation::EventDataInterface *data);
 
-    Foundation::Attribute<Transform> nodePosition_;
-    Foundation::Attribute<QString> meshResouceId_;
-    Foundation::Attribute<QString> skeletonId_;
-    Foundation::Attribute<std::vector<QVariant> > meshMaterial_;
-    Foundation::Attribute<float> drawDistance_;
-    Foundation::Attribute<bool> castShadows_;
+    Attribute<Transform> nodePosition_;
+    Attribute<QString> meshResouceId_;
+    Attribute<QString> skeletonId_;
+    Attribute<std::vector<QVariant> > meshMaterial_;
+    Attribute<float> drawDistance_;
+    Attribute<bool> castShadows_;
 
 public slots:
     //! Add or change entity's mesh.
     void SetMesh(const QString &name);
     void RemoveMesh();
     bool SetMaterial(uint index, const QString &material_name);
+    //! Attach skeleton to entity.
+    void AttachSkeleton(const QString &skeletonName);
 
 private slots:
     //! Emitted when the parrent entity has been setted.
     void UpdateSignals();
     //! Emitted when some of the attributes has been changed.
-    void AttributeUpdated(Foundation::ComponentInterface *component, Foundation::AttributeInterface *attribute);
+    void AttributeUpdated(Foundation::ComponentInterface *component, AttributeInterface *attribute);
 
 signals:
     void OnMeshChanged();
     void OnMaterialChanged(uint index, const QString &material_name);
     void OnSkeletonChanged(QString skeleton_name);
+    
 
 private:
     //! Constuctor.
@@ -88,9 +91,7 @@ private:
     void AttachEntity();
     //! Detach entity from the scene node.
     void DetachEntity();
-    //! Attach skeleton to entity's mesh.
-    void AttachSkeleton(const QString &skeletonName);
-
+    
     bool HandleResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data);
     bool HandleMeshResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data);
     bool HandleSkeletonResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data);
@@ -106,9 +107,9 @@ private:
     typedef std::vector<request_tag_t> AssetRequestArray;
     AssetRequestArray materialRequestTags_;
 
-    typedef std::pair<request_tag_t, std::string> ResouceKeyPair;
+    typedef std::pair<request_tag_t, std::string> ResourceKeyPair;
     typedef boost::function<bool(event_id_t,Foundation::EventDataInterface*)> MeshEventHandlerFunction;
-    typedef std::map<ResouceKeyPair, MeshEventHandlerFunction> MeshResourceHandlerMap;
+    typedef std::map<ResourceKeyPair, MeshEventHandlerFunction> MeshResourceHandlerMap;
     MeshResourceHandlerMap resRequestTags_;
 };
 
