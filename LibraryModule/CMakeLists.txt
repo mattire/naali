@@ -40,11 +40,12 @@ use_package (QT4)
 use_package (CURL)
 use_package (XMLRPC)
 use_package (OGRE)
-use_modules (Core Foundation Interfaces SceneManager RexCommon OgreRenderingModule ProtocolUtilities UiModule)
+use_modules (Core Foundation Interfaces SceneManager RexCommon OgreRenderingModule ProtocolUtilities UiModule AssetModule EntityComponents/EC_OpenSimPresence EntityComponents/EC_Mesh)
 
 build_library (${TARGET_NAME} SHARED ${SOURCE_FILES} ${MOC_SRCS} ${RESOURCE_SRCS} ${UI_SRCS})
 
-link_modules (Core Foundation Interfaces SceneManager RexCommon OgreRenderingModule ProtocolUtilities UiModule)
+link_modules (Core Foundation Interfaces SceneManager RexCommon OgreRenderingModule ProtocolUtilities UiModule AssetModule EC_OpenSimPresence EC_Mesh)
+
 link_package (BOOST)
 link_package (POCO)
 link_package (OGRE)
