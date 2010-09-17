@@ -18,8 +18,6 @@
 #include <QDropEvent>
 #include <QObject>
 
-class RexUUID;
-
 namespace OgreRenderer
 {
     class Renderer;
@@ -73,7 +71,7 @@ namespace Library
         //bool HandleAssetEvent(event_id_t event_id, Foundation::EventDataInterface* data);
 
         //! Handles a resource event. Called from LibraryModule.
-        bool HandleResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data);
+        //bool HandleResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data);
 
         //! Show the library widget
         Console::CommandResult ShowWindow(const StringVector &params);
@@ -111,18 +109,20 @@ namespace Library
         Library::LibraryWidget *library_widget_;        
 
         //! Asset_tags for mesh file requests.        
-        QMap<request_tag_t, QUrl> mesh_file_requests_;
+        QMap<QUrl, Vector3df> mesh_file_requests_;
 
         //Last created prim pos
         Vector3df raycast_pos_;
 
     private slots:
-        void LibraryDropEvent(QDropEvent *drop_event);        
+        void LibraryDropEvent(QDropEvent *drop_event);
+        void EntityCreated(Scene::Entity* entity, AttributeChange::Type change);
 
 
     signals:
         void UploadSceneFile(QString url, int x, int y, int z);
         void CreateObject();
+        
 
    };
 }

@@ -61,12 +61,12 @@ namespace WorldBuilding
         emit PosValuesToNetwork(x, y, z);
     }
 
-    void PythonHandler::EmitObjectAction(PythonParams::ObjectAction action)
+    void PythonHandler::EmitObjectAction(PythonParams::ObjectAction action, QVector3D pos)
     {
         switch (action)
         {
             case PythonParams::OBJ_NEW:
-                emit CreateObject();
+                emit CreateObject(pos);
                 break;
             case PythonParams::OBJ_CLONE:
                 emit DuplicateObject();

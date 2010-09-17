@@ -29,7 +29,11 @@
 
 #include "EC_Mesh.h"
 #include "EC_OgrePlaceable.h"
+#include "EC_OgreMesh.h"
+#include "EC_OpenSimPrim.h"
+#include "EntityComponent/EC_NetworkPosition.h"
 #include "MemoryLeakCheck.h"
+#include "RexLogicModule.h"
 
 #include <QDomDocument>
 #include <QFile>
@@ -77,8 +81,7 @@ namespace Library
             UiProxyWidget *lib_proxy = ui->AddWidgetToScene(library_widget_);
             ui->RegisterUniversalWidget("library", lib_proxy);
 
-            connect(ui_view, SIGNAL(LibraryDropEvent(QDropEvent *)), SLOT(LibraryDropEvent(QDropEvent *) ));
-            Scene::ScenePtr scene = framework_->GetDefaultWorldScene();
+            //connect(ui_view, SIGNAL(LibraryDropEvent(QDropEvent *)), SLOT(LibraryDropEvent(QDropEvent *) ));
 
         }
 
@@ -120,10 +123,10 @@ namespace Library
         //    HandleAssetEvent(event_id, data);
         //}
 
-        if (category_id == resource_event_category_)
-        {
-            HandleResourceEvent(event_id, data);
-        }
+        //if (category_id == resource_event_category_)
+        //{
+        //    HandleResourceEvent(event_id, data);
+        //}
 
         return false;
     }
@@ -167,63 +170,64 @@ namespace Library
     //    return false;
     //}
 
-    bool LibraryModule::HandleResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data)
-    {
+    //bool LibraryModule::HandleResourceEvent(event_id_t event_id, Foundation::EventDataInterface* data)
+    //{
 
-        if (event_id != Resource::Events::RESOURCE_READY)
-            return false;
-        
-        Resource::Events::ResourceReady *res = dynamic_cast<Resource::Events::ResourceReady*>(data);
-        assert(res);
-        if (!res)
-            return false;   
+    //    if (event_id != Resource::Events::RESOURCE_READY)
+    //        return false;
+    //    
+    //    Resource::Events::ResourceReady *res = dynamic_cast<Resource::Events::ResourceReady*>(data);
+    //    assert(res);
+    //    if (!res)
+    //        return false;   
 
-        if ( res->resource_->GetType() == "Mesh" || res->resource_->GetType() == "OgreMesh")
-        {
-            for(uint index = 0; index < mesh_file_requests_.size(); index++)
-            {
-                if(mesh_file_requests_.keys().at(index) == res->tag_)
-                {                
-                    
-                    boost::shared_ptr<OgreRenderer::Renderer> renderer = framework_->GetService<OgreRenderer::Renderer>(Foundation::Service::ST_Renderer).lock();
-                    if (!renderer)
-                        return false;
+    //    if ( res->resource_->GetType() == "Mesh" || res->resource_->GetType() == "OgreMesh")
+    //    {
+    //        for(uint index = 0; index < mesh_file_requests_.size(); index++)
+    //        {
+    //            if(mesh_file_requests_.keys().at(index) == res->tag_)
+    //            {                
+    //                
+    //                boost::shared_ptr<OgreRenderer::Renderer> renderer = framework_->GetService<OgreRenderer::Renderer>(Foundation::Service::ST_Renderer).lock();
+    //                if (!renderer)
+    //                    return false;
 
-                    QString url = (mesh_file_requests_.values().at(index)).toString();
+    //                QString url = (mesh_file_requests_.values().at(index)).toString();
 
-                    Scene::ScenePtr scene = framework_->GetDefaultWorldScene();
-                    if (!scene.get())
-                        return false;
+    //                Scene::ScenePtr scene = framework_->GetDefaultWorldScene();
+    //                if (!scene.get())
+    //                    return false;
 
-                    emit CreateObject();
 
-                    //Scene::EntityPtr entity = scene->CreateEntity(framework_->GetDefaultWorldScene()->GetNextFreeId());
+    //                currentWorldStream_->SendObjectAddPacket(raycast_pos_);
 
-                    //Foundation::ComponentInterfacePtr place = entity->GetOrCreateComponent("EC_OgrePlaceable");
-                    //Foundation::ComponentInterfacePtr mesh = entity->GetOrCreateComponent("EC_Mesh");
+    //                //Scene::EntityPtr entity = scene->CreateEntity(framework_->GetDefaultWorldScene()->GetNextFreeId());
 
-                    //if (mesh)
-                    //{
-                    //    EC_Mesh *my_mesh = dynamic_cast<EC_Mesh*>(mesh.get());
-                    //    if (my_mesh)
-                    //    {                            
-                    //        my_mesh->SetMesh(url); 
-                    //        uint submesh_count = 0;
-                    //        submesh_count = my_mesh->GetNumMaterials();
-                    //    }
-                    //    OgreRenderer::EC_OgrePlaceable *my_place = dynamic_cast<OgreRenderer::EC_OgrePlaceable*>(place.get());
-                    //    if (my_place)
-                    //    {                                                        
-                    //        my_place->SetPosition(raycast_pos_);
-                    //    }
-                    //    
-                    //}
-                }
-            }
-        }
+    //                //Foundation::ComponentInterfacePtr place = entity->GetOrCreateComponent("EC_OgrePlaceable");
+    //                //Foundation::ComponentInterfacePtr mesh = entity->GetOrCreateComponent("EC_Mesh");
 
-        return false;
-    }
+    //                //if (mesh)
+    //                //{
+    //                //    EC_Mesh *my_mesh = dynamic_cast<EC_Mesh*>(mesh.get());
+    //                //    if (my_mesh)
+    //                //    {                            
+    //                //        my_mesh->SetMesh(url); 
+    //                //        uint submesh_count = 0;
+    //                //        submesh_count = my_mesh->GetNumMaterials();
+    //                //    }
+    //                //    OgreRenderer::EC_OgrePlaceable *my_place = dynamic_cast<OgreRenderer::EC_OgrePlaceable*>(place.get());
+    //                //    if (my_place)
+    //                //    {                                                        
+    //                //        my_place->SetPosition(raycast_pos_);
+    //                //    }
+    //                //    
+    //                //}
+    //            }
+    //        }
+    //    }
+
+    //    return false;
+    //}
 
     void LibraryModule::LibraryDropEvent(QDropEvent *drop_event)
     {
@@ -251,24 +255,61 @@ namespace Library
                 else if (url.toString().endsWith(".mesh"))
                 {
 
+                    Scene::ScenePtr scene = framework_->GetDefaultWorldScene();
+                    connect(scene.get(), SIGNAL(EntityCreated(Scene::Entity *, AttributeChange::Type)), SLOT(EntityCreated(Scene::Entity *, AttributeChange::Type)));
+
+                    currentWorldStream_->SendObjectAddPacket(raycast_pos_);
+                    mesh_file_requests_.insert(url, raycast_pos_);
+
+                    //connect(currentWorldStream_.get(), SIGNAL(EntityCreated(Scene::Entity *, AttributeChange::Type)), SLOT(EntityCreated(Scene::Entity *, AttributeChange::Type)));
+
                     //Request mesh file           
-                    boost::shared_ptr<OgreRenderer::OgreRenderingModule> rendering_module = 
-                    framework_->GetModuleManager()->GetModule<OgreRenderer::OgreRenderingModule>().lock();
+                    //boost::shared_ptr<OgreRenderer::OgreRenderingModule> rendering_module = 
+                    //framework_->GetModuleManager()->GetModule<OgreRenderer::OgreRenderingModule>().lock();
 
-                    if (!rendering_module)
-                        return;
+                    //if (!rendering_module)
+                    //    return;
 
-                    OgreRenderer::RendererPtr renderer = rendering_module->GetRenderer();
-                    
-                    request_tag_t tag = renderer->RequestResource(url.toString().toStdString(), OgreRenderer::OgreMeshResource::GetTypeStatic());
-                    if (tag)
-                        mesh_file_requests_.insert(tag, url);
+                    //OgreRenderer::RendererPtr renderer = rendering_module->GetRenderer();
+                    //
+                    //request_tag_t tag = renderer->RequestResource(url.toString().toStdString(), OgreRenderer::OgreMeshResource::GetTypeStatic());
+                    //if (tag)
+                    //    mesh_file_requests_.insert(tag, url);
                     
                 }
             }
         }
     }
 
+    void LibraryModule::EntityCreated(Scene::Entity* entity, AttributeChange::Type change)
+    {
+        EC_OpenSimPrim *prim = entity->GetComponent<EC_OpenSimPrim>().get();
+        RexLogic::EC_NetworkPosition *pos = entity->GetComponent<RexLogic::EC_NetworkPosition>().get();
+        if (!pos)
+            return;
+
+        QVector3D temp = pos->GetQPosition();
+
+        for(uint index = 0; index < mesh_file_requests_.size(); index++)
+        {            
+            Vector3df meshpos = mesh_file_requests_.values().at(index);
+            if(meshpos.x == temp.x() && meshpos.y == temp.y())
+            {
+                QUrl url = mesh_file_requests_.keys().at(index);
+                Foundation::ComponentInterfacePtr comp = entity->GetOrCreateComponent(OgreRenderer::EC_OgreMesh::TypeNameStatic());
+
+                OgreRenderer::EC_OgreMesh *mesh = dynamic_cast<OgreRenderer::EC_OgreMesh*>(comp.get());
+                if (mesh)
+                {                   
+                    mesh->SetMesh(url.toString().toStdString());
+                    prim->setMeshID(url.toString());
+                }
+            }
+        }
+    
+
+
+    }
 
 Console::CommandResult LibraryModule::ShowWindow(const StringVector &params)
 {

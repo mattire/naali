@@ -128,7 +128,7 @@ class ObjectEdit(Component):
             self.cpp_python_handler.connect('RotateValuesToNetwork(int, int, int)', self.changerot_cpp)
             self.cpp_python_handler.connect('ScaleValuesToNetwork(double, double, double)', self.changescale_cpp)
             self.cpp_python_handler.connect('PosValuesToNetwork(double, double, double)', self.changepos_cpp)
-            self.cpp_python_handler.connect('CreateObject()', self.createObject)
+            self.cpp_python_handler.connect('CreateObject(QVector3D)', self.createObject)
             self.cpp_python_handler.connect('DuplicateObject()', self.duplicate)
             self.cpp_python_handler.connect('DeleteObject()', self.deleteObject)
             # Pass widgets
@@ -569,14 +569,22 @@ class ObjectEdit(Component):
         for ent in self.sels:
             self.worldstream.SendObjectDuplicatePacket(ent.id, ent.prim.UpdateFlags, 1, 1, 0) #nasty hardcoded offset
         
-    def createObject(self):
-        avatar = naali.getUserAvatar()
-        pos = avatar.placeable.Position
+    def createObject(self, pos=None):
+
+        useavpos = False
+        if pos is None:	
+            avatar = naali.getUserAvatar()
+            pos = avatar.placeable.Position
+            useavpos = True
 
         # TODO determine what is right in front of avatar and use that instead
-        start_x = pos.x() + .7
-        start_y = pos.y() + .7
+        start_x = pos.x()
+        start_y = pos.y()
         start_z = pos.z()
+
+        if useavpos:
+             start_x = pos.x() + .7
+             start_y = pos.y() + .7
 
         self.worldstream.SendObjectAddPacket(start_x, start_y, start_z)
 
@@ -701,7 +709,7 @@ class ObjectEdit(Component):
         self.cpp_python_handler.disconnect('RotateValuesToNetwork(int, int, int)', self.changerot_cpp)
         self.cpp_python_handler.disconnect('ScaleValuesToNetwork(double, double, double)', self.changescale_cpp)
         self.cpp_python_handler.disconnect('PosValuesToNetwork(double, double, double)', self.changepos_cpp)
-        self.cpp_python_handler.disconnect('CreateObject()', self.createObject)
+        self.cpp_python_handler.disconnect('CreateObject(QVector3D)', self.createObject)
         self.cpp_python_handler.disconnect('DuplicateObject()', self.duplicate)
         self.cpp_python_handler.disconnect('DeleteObject()', self.deleteObject)
         # Clean widgets

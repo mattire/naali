@@ -4,6 +4,7 @@
 #define incl_WorldBuildingModule_PythonHanler_h
 
 #include <QObject>
+#include <QVector3D>
 
 class EC_OpenSimPrim;
 
@@ -53,7 +54,7 @@ namespace WorldBuilding
         void EmitRotateChange(int x, int y, int z);
         void EmitScaleChange(double x, double y, double z);
         void EmitPosChange(double x, double y, double z);
-        void EmitObjectAction(PythonParams::ObjectAction action);
+        void EmitObjectAction(PythonParams::ObjectAction action, QVector3D pos);
 
         void PassWidget(const QString &type, QWidget *widget);
 
@@ -74,7 +75,7 @@ namespace WorldBuilding
         void RotateValuesToNetwork(int x, int y, int z);
         void ScaleValuesToNetwork(double x, double y, double z);
         void PosValuesToNetwork(double x, double y, double z);
-        void CreateObject();
+        void CreateObject(QVector3D pos);
         void DuplicateObject();
         void DeleteObject();
 

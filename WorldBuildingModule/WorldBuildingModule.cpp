@@ -20,6 +20,7 @@ namespace WorldBuilding
 
     WorldBuildingModule::WorldBuildingModule() :
         QObject(),
+        time_from_last_update_ms_(0),
         ModuleInterface(module_name)
     {
         event_query_categories_ << "Framework" << "NetworkState" << "Scene";
@@ -48,6 +49,16 @@ namespace WorldBuilding
         input_context_ = GetFramework()->Input().RegisterInputContext("WorldBuildingContext", 90);
         connect(input_context_.get(), SIGNAL(KeyPressed(KeyEvent*)), build_scene_manager_.get(), SLOT(KeyPressed(KeyEvent*)));
         connect(input_context_.get(), SIGNAL(KeyReleased(KeyEvent*)), build_scene_manager_.get(), SLOT(KeyReleased(KeyEvent*)));
+    }
+
+    void WorldBuildingModule::Update(f64 frametime)
+    {
+        time_from_last_update_ms_ += frametime;
+        if (time_from_last_update_ms_ < 0.1)
+            return;
+        time_from_last_update_ms_ = 0;
+
+        build_scene_manager_->HandleCreatedEntities();
     }
 
     bool WorldBuildingModule::HandleEvent(event_category_id_t category_id, event_id_t event_id, Foundation::EventDataInterface* data)

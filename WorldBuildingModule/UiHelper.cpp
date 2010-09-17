@@ -487,6 +487,39 @@ namespace WorldBuilding
             inv_data->UploadFile(filename, upload_folder); // upload
         }
 
+        void UiHelper::UploadMesh(QString filename, QString upload_to)
+        {
+            using namespace Inventory;
+
+            // Get inventory module
+            boost::shared_ptr<InventoryModule> inv_module = framework_->GetModuleManager()->GetModule<InventoryModule>().lock();
+            if (!inv_module)
+                return;
+
+            // Get data model and service
+            InventoryPtr inv_data = inv_module->GetInventoryPtr();
+            InventoryService *inv_serv = inv_module->GetInventoryService();
+            InventoryModule::InventoryDataModelType inv_type = inv_module->GetInventoryType();
+            if (!inv_data || !inv_serv)
+                return;
+
+            if (filename.isEmpty())
+                return;
+            QString only_name = filename.right(filename.length() - (filename.lastIndexOf("/")+1));
+
+            // Check for parent folder
+            AbstractInventoryItem *upload_folder = inv_data->GetFirstChildFolderByName(upload_to);
+            if (!upload_folder)
+            {
+                upload_folder = inv_data->GetOrCreateNewFolder(RexUUID::CreateRandom().ToQString(), *inv_data->GetFirstChildFolderByName("My Inventory"), upload_to);
+                if (!upload_folder)
+                    return; // i'll get me coat sir
+            }
+            filename = filename.replace("/", "\\"); // webdav lib requires this
+            
+            inv_data->UploadFile(filename, upload_folder); // upload
+        }
+
         void UiHelper::AssetUploadCompleted(const QString &filename, const QString &asset_ref)
         {
             if (!pending_uploads_.contains(filename))

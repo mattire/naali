@@ -70,6 +70,8 @@ namespace WorldBuilding
             void SetupVisibilityButtons(AnchorLayout *layout, Ui::BuildingWidget *manip_ui, Ui::BuildingWidget *info_ui);
             void AddBrowsePair(QString name, QPushButton *button, QWidget *tool_widget);
 
+            void UploadMesh(QString filename, QString upload_to);
+
         private slots:
             void CollapseSubGroups(QtBrowserItem *main_group);
 
@@ -78,7 +80,7 @@ namespace WorldBuilding
             QtProperty *CreateShapeGroup(QtVariantPropertyManager *variant_manager, EC_OpenSimPrim *prim);
 
             void BrowseClicked(QWidget *widget_ptr);
-            void BrowserAndUpload(QString category, QString filter, QString upload_to, QWidget *tool_widget);
+            void BrowserAndUpload(QString category, QString filter, QString upload_to, QWidget *tool_widget);            
             void AssetUploadCompleted(const QString &filename, const QString &asset_ref);
 
         signals:

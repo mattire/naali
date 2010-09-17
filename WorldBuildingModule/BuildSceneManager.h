@@ -20,6 +20,7 @@
 #include <QObject>
 #include <QTimer>
 #include <QPair>
+#include <QDropEvent>
 
 class QtAbstractPropertyBrowser;
 class QtProperty;
@@ -85,8 +86,13 @@ namespace WorldBuilding
         void RotateObject(qreal x, qreal y);
         void Zoom(qreal delta);
 
+        void HandleCreatedEntities();
+
         // WorldBuildingServiceInterface
         virtual QObject *GetPythonHandler() const;
+
+        //! Handle primitive EntityCreated
+        void EntityCreated(Scene::Entity* entity, AttributeChange::Type change);
 
     private slots:
         void InitScene();
@@ -107,6 +113,8 @@ namespace WorldBuilding
         void HandlePythonWidget(const QString &type, QWidget *widget);
 
         void ToggleLights();
+
+        void LibraryDropEvent(QDropEvent *drop_event);
 
     private:
         Foundation::Framework *framework_;
@@ -140,6 +148,15 @@ namespace WorldBuilding
         bool prim_selected_;
 
         QMap<QString, TransferPair > tranfer_widgets_;
+
+        QMap<QUrl, Vector3df> mesh_file_requests_;
+        Vector3df raycast_pos_;
+        QList<Scene::Entity *> created_entities_;
+
+
+    signals:
+        void UploadSceneFile(QString url, int x, int y, int z);
+
     };
 }
 

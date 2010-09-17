@@ -11,6 +11,7 @@
 #include <QObject>
 #include <QStringList>
 #include <QMap>
+#include <QDropEvent>
 
 namespace WorldBuilding
 {
@@ -31,6 +32,7 @@ namespace WorldBuilding
 
         void Initialize();
         void PostInitialize();
+        void Update(f64 frametime);
         bool HandleEvent(event_category_id_t category_id, event_id_t event_id, Foundation::EventDataInterface* data);
 
         MODULE_LOGGING_FUNCTIONS
@@ -41,9 +43,12 @@ namespace WorldBuilding
     
     private slots:
         //! Populate service_category_identifiers_
-        void SubscribeToEventCategories();    
+        void SubscribeToEventCategories();
 
     private:
+
+        f64 time_from_last_update_ms_;
+
         //! Current query categories
         QStringList event_query_categories_;
 

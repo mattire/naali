@@ -13,7 +13,12 @@
 #include "ModuleInterface.h"
 #include "EC_OpenSimPrim.h"
 #include "EC_OgrePlaceable.h"
+#include "EC_OgreCustomObject.h"
+#include "EC_OgreMesh.h"
 #include "UiServiceInterface.h"
+
+#include "Renderer.h"
+#include "SceneManager.h"
 
 #include <QPixmap>
 #include <QDebug>
@@ -41,7 +46,8 @@ namespace WorldBuilding
         setParent(parent);
         connect(framework_->GetQApplication(), SIGNAL(aboutToQuit()), SLOT(CleanPyWidgets()));
         connect(viewport_poller_, SIGNAL(timeout()), SLOT(UpdateObjectViewport()));
-
+        connect(framework_->GetUIView(), SIGNAL(LibraryDropEvent(QDropEvent *)), SLOT(LibraryDropEvent(QDropEvent *) ));
+        
         InitScene();
         ObjectSelected(false);        
     }
@@ -425,17 +431,17 @@ namespace WorldBuilding
 
     void BuildSceneManager::NewObjectClicked()
     {
-        python_handler_->EmitObjectAction(PythonParams::OBJ_NEW);
+        python_handler_->EmitObjectAction(PythonParams::OBJ_NEW, QVector3D());
     }
 
     void BuildSceneManager::DuplicateObjectClicked()
     {
-        python_handler_->EmitObjectAction(PythonParams::OBJ_CLONE);
+        python_handler_->EmitObjectAction(PythonParams::OBJ_CLONE, QVector3D());
     }
 
     void BuildSceneManager::DeleteObjectClicked()
     {
-        python_handler_->EmitObjectAction(PythonParams::OBJ_DELETE);
+        python_handler_->EmitObjectAction(PythonParams::OBJ_DELETE, QVector3D());
         ObjectSelected(false);
     }
 
@@ -686,4 +692,100 @@ namespace WorldBuilding
             toolbar_->button_lights->setText("Custom Lights");
         toolbar_->slider_lights->setVisible(override_server_time_);
     }
+
+    //Library functions
+
+    void BuildSceneManager::LibraryDropEvent(QDropEvent *drop_event)
+    {
+        if (drop_event->mimeData()->hasUrls()) 
+        {
+            foreach (QUrl url, drop_event->mimeData()->urls())
+            {                
+
+                //Do raycast for mouse position for scene file
+                boost::shared_ptr<OgreRenderer::Renderer> renderer = framework_->GetService<OgreRenderer::Renderer>(Foundation::Service::ST_Renderer).lock();
+                if (!renderer)
+                    return;
+
+                Foundation::RaycastResult cast_result = renderer->Raycast(drop_event->pos().x(), drop_event->pos().y());
+                raycast_pos_ = cast_result.pos_;
+                Scene::Entity *entity = cast_result.entity_;
+                if (!entity) // User didn't click on terrain or other entities.
+                    return;
+
+                if (url.toString().endsWith(".scene"))
+                {
+                    //Emit signal to be catched in Python module
+                    emit UploadSceneFile(url.toString(), cast_result.pos_.x, cast_result.pos_.y, cast_result.pos_.z);
+                }
+                else if (url.toString().endsWith(".mesh"))
+                {
+                    //currentWorldStream_->SendObjectAddPacket(raycast_pos_);
+                    mesh_file_requests_.insert(url, raycast_pos_);
+
+                    // Hook primitive EntityCreated
+                    Scene::ScenePtr scene = framework_->GetDefaultWorldScene();
+                    disconnect(scene.get(), SIGNAL(EntityCreated(Scene::Entity *, AttributeChange::Type)), this, SLOT(EntityCreated(Scene::Entity *, AttributeChange::Type)));
+                    connect(scene.get(), SIGNAL(EntityCreated(Scene::Entity *, AttributeChange::Type)), this, SLOT(EntityCreated(Scene::Entity *, AttributeChange::Type)));
+
+                    python_handler_->EmitObjectAction(PythonParams::OBJ_NEW, QVector3D(raycast_pos_.x, raycast_pos_.y, raycast_pos_.z));
+                }
+            }
+        }
+    }
+
+    void BuildSceneManager::EntityCreated(Scene::Entity* entity, AttributeChange::Type change)
+    {
+        created_entities_.append(entity);
+    }
+
+    void BuildSceneManager::HandleCreatedEntities()
+    {
+
+        if (created_entities_.isEmpty())
+            return;
+
+        for (int i = 0; i < created_entities_.count(); i++)
+        {
+            Scene::Entity *entity = created_entities_.at(i);
+            if (!entity)
+                return;
+
+            EC_OpenSimPrim *prim = entity->GetComponent<EC_OpenSimPrim>().get();
+            OgreRenderer::EC_OgrePlaceable* place = entity->GetComponent<OgreRenderer::EC_OgrePlaceable>().get();        
+            if (!place)
+                return;
+
+            Vector3df pos = place->GetPosition();
+            if (pos.x == 0 && pos.y == 0 && pos.z == 0)
+                return;
+
+            for(uint index = 0; index < mesh_file_requests_.size(); index++)
+            {            
+                Vector3df meshpos = mesh_file_requests_.values().at(index);
+                if(meshpos.x == pos.x && meshpos.y == pos.y)
+                {
+                    QUrl url = mesh_file_requests_.keys().at(index);
+                    // Download to inventory
+                    //ui_helper_->UploadMesh(url.toString(), "3D Models");
+
+                    OgreRenderer::EC_OgreMesh *mesh = entity->GetComponent<OgreRenderer::EC_OgreMesh>().get();
+                    if (mesh)
+                    {
+                        mesh->SetMesh(url.toString());
+                        created_entities_.removeAt(i);
+                    }
+                    else
+                    {
+                        prim->setMeshID(url.toString());
+                        prim->SendRexPrimDataUpdate();
+                    }
+
+                }
+            }
+
+        }
+    }
+
+
 }
