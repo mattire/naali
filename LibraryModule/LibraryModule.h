@@ -76,6 +76,8 @@ namespace Library
         //! Show the library widget
         Console::CommandResult ShowWindow(const StringVector &params);
 
+        Console::CommandResult TestEvent(const StringVector &params);
+
         MODULE_LOGGING_FUNCTIONS
 
         /// Returns name of this module. Needed for logging.

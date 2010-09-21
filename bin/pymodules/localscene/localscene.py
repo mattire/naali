@@ -27,10 +27,10 @@ from scenedata import SceneDataManager
 
 from xml.dom.minidom import getDOMImplementation
 
-
-
 import Queue
 
+
+glocalscene = None # need this to access directly from C++ LibraryModule
         
 class LocalScene(Component):
     def __init__(self):
@@ -72,9 +72,10 @@ class LocalScene(Component):
         
         self.sceneActions = None # sceneactions.SceneActions()
         
+        globals()["glocalscene"] = self
         
-		#self.libMod = r.getLibraryModule()
-        
+        ## old way to connect
+		#self.libMod = r.getLibraryModule()        
         #self.libMod.connect("UploadSceneFile(QString, QVect)", self.onUploadSceneFile)
         pass
 
@@ -308,3 +309,6 @@ class SceneSaver:
         contents = '\n'.join(lines)
         f.write(contents)
         f.close()
+
+def getLocalScene():
+    return glocalscene
