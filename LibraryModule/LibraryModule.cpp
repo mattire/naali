@@ -253,14 +253,22 @@ namespace Library
                     //Emit signal to be catched in Python module
                     //emit UploadSceneFile(url.toString(), cast_result.pos_.x, cast_result.pos_.y, cast_result.pos_.z);
                     //Call python directly (dont want to add dependency to optional module in pythonscript module)
+                    //Change coords to string format for calling py
+                    QString qx;
+                    qx.append(QString("%1").arg(cast_result.pos_.x));
+                    QString qy;
+                    qy.append(QString("%1").arg(cast_result.pos_.y));
+                    QString qz;
+                    qz.append(QString("%1").arg(cast_result.pos_.z));
+
                     Foundation::ServiceManagerPtr manager = this->framework_->GetServiceManager();
                     boost::shared_ptr<Foundation::ScriptServiceInterface> pyservice = manager->GetService<Foundation::ScriptServiceInterface>(Foundation::Service::ST_PythonScripting).lock();
                     if (pyservice)
                         pyservice->RunString("import localscene; lc = localscene.getLocalScene(); lc.onUploadSceneFile('" + 
                                               url.toString() + "', " + 
-                                              cast_result.pos_.x +", " + 
-                                              cast_result.pos_.y + ", " + 
-                                              cast_result.pos_.z + "');");
+                                              qx +", " + 
+                                              qy + ", " + 
+                                              qz + "');");
 
                 }
                 else if (url.toString().endsWith(".mesh"))
