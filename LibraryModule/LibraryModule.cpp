@@ -39,6 +39,7 @@
 #include <QFile>
 #include "RexTypes.h"
 
+#include "ScriptServiceInterface.h" // call py directly
 
 namespace Library
 {
@@ -250,7 +251,16 @@ namespace Library
                 if (url.toString().endsWith(".scene"))
                 {
                     //Emit signal to be catched in Python module
-                    emit UploadSceneFile(url.toString(), cast_result.pos_.x, cast_result.pos_.y, cast_result.pos_.z);
+                    //emit UploadSceneFile(url.toString(), cast_result.pos_.x, cast_result.pos_.y, cast_result.pos_.z);
+                    //Call python directly (dont want to add dependency to optional module in pythonscript module)
+                    Foundation::ServiceManagerPtr manager = this->framework_->GetServiceManager();
+                    boost::shared_ptr<Foundation::ScriptServiceInterface> pyservice = manager->GetService<Foundation::ScriptServiceInterface>(Foundation::Service::ST_PythonScripting).lock();
+                    if (pyservice)
+                        pyservice->RunString("import localscene; localscene.onUploadSceneFile('" + 
+                                              url.toString() + ", " + 
+                                              cast_result.pos_.x +", " + 
+                                              cast_result.pos_.y + ", " + 
+                                              cast_result.pos_.z + "');");
                 }
                 else if (url.toString().endsWith(".mesh"))
                 {
