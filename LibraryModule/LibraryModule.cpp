@@ -73,10 +73,6 @@ namespace Library
             "Shows web library.",
             Console::Bind(this, &LibraryModule::ShowWindow)));
 
-        RegisterConsoleCommand(Console::CreateCommand("TE",
-            "Test event.",
-            Console::Bind(this, &LibraryModule::TestEvent)));
-
         if (!library_widget_)
         {
             QGraphicsView *ui_view = framework_->GetUIView();
@@ -295,40 +291,6 @@ namespace Library
             }
         }
     }
-
-    Console::CommandResult LibraryModule::TestEvent(const StringVector &params)
-    {
-        //emit UploadSceneFile("http://192.168.5.197/Library/scenes/TestScene/xwing.scene", 127, 127, 50);
-        //emit UploadSceneFile("http://www.student.oulu.fi/~mreijone/xwing.scene", 127, 127, 50);
-        //QUrl* url = new QUrl("http://www.student.oulu.fi/~mreijone/xwing.scene");
-        QUrl* url = new QUrl("http://192.168.5.197/Library/scenes/TestScene/xwing.scene");
-        Foundation::RaycastResult* cast_result = new Foundation::RaycastResult();
-        cast_result->pos_.x = 127;
-        cast_result->pos_.y = 127;
-        cast_result->pos_.z = 40;
-
-        //Foundation::ModuleInterface
-        Foundation::ServiceManagerPtr manager = this->framework_->GetServiceManager();
-        boost::shared_ptr<Foundation::ScriptServiceInterface> pyservice = manager->GetService<Foundation::ScriptServiceInterface>(Foundation::Service::ST_PythonScripting).lock();
-
-        QString qstr = url->toString();
-        
-        //QVector3D* qvect = new QVector3D(cast_result->pos_.x, cast_result->pos_.y, cast_result->pos_.z);
-        if (pyservice)
-            pyservice->RunString("import localscene; lc = localscene.getLocalScene(); lc.onUploadSceneFile('" + 
-                                  qstr + "', " + // QString::fromStdString(url->toString()) + ", " + 
-                                  "127, " + 
-                                  "127, " + 
-                                  "50);");
-                                  //cast_result->pos_.x +", " + 
-                                  //cast_result->pos_.y + ", " + 
-                                  //cast_result->pos_.z + "');");
-
-        delete url;
-        delete cast_result;
-        return Console::ResultSuccess("Test event send.");
-    }
-
 
     void LibraryModule::EntityCreated(Scene::Entity* entity, AttributeChange::Type change)
     {
