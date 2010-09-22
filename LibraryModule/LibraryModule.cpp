@@ -268,7 +268,7 @@ namespace Library
                                               url.toString() + "', " + 
                                               qx +", " + 
                                               qy + ", " + 
-                                              qz + "');");
+                                              qz + ");");
 
                 }
                 else if (url.toString().endsWith(".mesh"))
