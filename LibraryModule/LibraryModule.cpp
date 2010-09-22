@@ -82,7 +82,7 @@ namespace Library
             UiProxyWidget *lib_proxy = ui->AddWidgetToScene(library_widget_);
             ui->RegisterUniversalWidget("library", lib_proxy);
 
-            //connect(ui_view, SIGNAL(LibraryDropEvent(QDropEvent *)), SLOT(LibraryDropEvent(QDropEvent *) ));
+            connect(ui_view, SIGNAL(LibraryDropEvent(QDropEvent *)), SLOT(LibraryDropEvent(QDropEvent *) ));
 
         }
 
